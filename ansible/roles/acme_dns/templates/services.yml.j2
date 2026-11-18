@@ -1,0 +1,31 @@
+# DNS, reachable from the internet
+apiVersion: v1
+kind: Service
+metadata:
+  name: acme-dns-dns
+  namespace: {{ acme_dns_namespace }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: acme-dns
+  ports:
+    - name: dns-udp
+      port: 53
+      protocol: UDP
+    - name: dns-tcp
+      port: 53
+      protocol: TCP
+---
+# HTTP API, cluster-internal only
+apiVersion: v1
+kind: Service
+metadata:
+  name: acme-dns
+  namespace: {{ acme_dns_namespace }}
+spec:
+  selector:
+    app: acme-dns
+  ports:
+    - name: api
+      port: 80
+      protocol: TCP

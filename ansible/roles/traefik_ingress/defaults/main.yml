@@ -1,0 +1,9 @@
+---
+traefik_ingress_namespace: traefik
+traefik_ingress_chart_repo: https://helm.traefik.io/traefik
+traefik_ingress_chart_version: "42.4.1"
+# --set service.spec.type=LoadBalancer from the post (the chart's schema rejects service.type).
+traefik_ingress_values:
+  service:
+    spec:
+      type: LoadBalancer

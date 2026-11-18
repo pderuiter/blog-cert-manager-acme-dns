@@ -1,0 +1,72 @@
+---
+- name: Create the namespace
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ acme_dns_namespace }}"
+    state: present
+
+- name: Create the DNS and API Services
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'services.yml.j2') | ansible.builtin.from_yaml_all | list }}"
+    # Server-side apply: the port lists have 53/UDP and 53/TCP, and a client-side
+    # (strategic merge) patch keys container ports on the number alone and folds them.
+    apply: true
+    server_side_apply:
+      field_manager: ansible
+      force_conflicts: true
+
+- name: Wait for the external IP of the DNS LoadBalancer
+  kubernetes.core.k8s_info:
+    kind: Service
+    name: acme-dns-dns
+    namespace: "{{ acme_dns_namespace }}"
+  register: acme_dns_lb
+  retries: 30
+  delay: 5
+  until: acme_dns_lb.resources[0].status.loadBalancer.ingress | default([]) | length > 0
+
+- name: Set the IP for the ACME-DNS records
+  ansible.builtin.set_fact:
+    acme_dns_ip: "{{ acme_dns_public_ip if acme_dns_public_ip | length > 0 else acme_dns_lb.resources[0].status.loadBalancer.ingress[0].ip }}"
+
+- name: Create the configuration
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: acme-dns-config
+        namespace: "{{ acme_dns_namespace }}"
+      data:
+        config.cfg: "{{ lookup('ansible.builtin.template', 'config.cfg.j2') }}"
+
+- name: Deploy ACME-DNS
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'deployment.yml.j2') | ansible.builtin.from_yaml_all | list }}"
+    # Server-side apply: the port lists have 53/UDP and 53/TCP, and a client-side
+    # (strategic merge) patch keys container ports on the number alone and folds them.
+    apply: true
+    server_side_apply:
+      field_manager: ansible
+      force_conflicts: true
+
+# The local-path PVC stays Pending until the pod is scheduled, so only the
+# Deployment is waited for.
+- name: Wait until ACME-DNS is available
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: acme-dns
+    namespace: "{{ acme_dns_namespace }}"
+    wait: true
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300
+
+- name: Register the ACME-DNS accounts
+  ansible.builtin.include_tasks: register.yml
+  when: acme_dns_accounts | length > 0

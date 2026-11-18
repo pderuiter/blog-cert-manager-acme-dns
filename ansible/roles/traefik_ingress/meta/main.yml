@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: traefik_ingress
+  author: Patrick de Ruiter
+  description: Traefik ingress controller from the Helm chart with a LoadBalancer Service
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+dependencies: []

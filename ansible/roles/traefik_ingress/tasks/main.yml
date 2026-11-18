@@ -1,0 +1,16 @@
+---
+- name: Add the Traefik chart repository
+  kubernetes.core.helm_repository:
+    name: traefik
+    repo_url: "{{ traefik_ingress_chart_repo }}"
+
+- name: Install Traefik
+  kubernetes.core.helm:
+    name: traefik
+    chart_ref: traefik/traefik
+    chart_version: "{{ traefik_ingress_chart_version }}"
+    release_namespace: "{{ traefik_ingress_namespace }}"
+    create_namespace: true
+    values: "{{ traefik_ingress_values }}"
+    wait: true
+    wait_timeout: 10m

@@ -1,0 +1,25 @@
+---
+# Values from the post.
+# ACME-DNS answers for this (delegated) subdomain.
+acme_dns_domain: auth.example.com
+acme_dns_nsname: ns1.auth.example.com
+acme_dns_nsadmin: admin.example.com
+# Domains to register an ACME-DNS account for; they end up in acmedns-secret/account.json.
+acme_dns_accounts:
+  - example.com
+
+cert_manager_acme_email: your-email@example.com
+# Let's Encrypt production. Use https://acme-staging-v02.api.letsencrypt.org/directory while testing.
+cert_manager_acme_server: https://acme-v02.api.letsencrypt.org/directory
+
+# Certificates to request (section 5 of the post). Only add one after the CNAME for
+# _acme-challenge.<domain> is in your main DNS (the playbook prints the records).
+cert_manager_certificates: []
+#  - name: example-com-tls
+#    namespace: default
+#    secret_name: example-com-tls-secret
+#    dns_names: [example.com]
+
+# Shared by the k3s role and the plays that talk to the cluster.
+k3s_kubeconfig: /etc/rancher/k3s/k3s.yaml
+k3s_python_venv: /opt/ansible-k8s

@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ cert_manager_issuer_name }}
+spec:
+  acme:
+    server: {{ cert_manager_acme_server }}
+{% if cert_manager_acme_ca_bundle | length > 0 %}
+    caBundle: {{ cert_manager_acme_ca_bundle }}
+{% endif %}
+    email: {{ cert_manager_acme_email }}
+    privateKeySecretRef:
+      name: acmedns-issuer-account-key
+    solvers:
+    - dns01:
+        acmeDNS:
+          host: {{ cert_manager_acme_dns_host }}
+          accountSecretRef:
+            name: acmedns-secret
+            key: account.json

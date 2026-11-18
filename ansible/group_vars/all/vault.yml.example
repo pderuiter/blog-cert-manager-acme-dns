@@ -1,0 +1,3 @@
+---
+# This setup has no secrets to provide: the ACME-DNS account is created by the
+# playbook and stored as a Kubernetes secret (acmedns-secret in cert-manager).

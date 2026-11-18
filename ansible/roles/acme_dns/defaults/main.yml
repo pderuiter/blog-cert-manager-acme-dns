@@ -1,0 +1,16 @@
+---
+acme_dns_namespace: acme-dns
+acme_dns_image: joohoi/acme-dns:v2.0.2
+acme_dns_domain: auth.example.com
+acme_dns_nsname: ns1.auth.example.com
+acme_dns_nsadmin: admin.example.com
+# Public IP for the records in config.cfg. Empty = the external IP the acme-dns-dns
+# LoadBalancer gets (with k3s ServiceLB: the node IP).
+acme_dns_public_ip: ""
+acme_dns_storage_size: 100Mi
+acme_dns_log_level: info
+
+# Domains to register (one ACME-DNS account each) and where cert-manager finds them.
+acme_dns_accounts: []
+acme_dns_secret_namespace: cert-manager
+acme_dns_secret_name: acmedns-secret

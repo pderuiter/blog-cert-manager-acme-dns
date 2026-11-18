@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: cert_manager
+  author: Patrick de Ruiter
+  description: cert-manager from the Helm chart and an ACME ClusterIssuer that solves DNS-01 with ACME-DNS
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+dependencies: []

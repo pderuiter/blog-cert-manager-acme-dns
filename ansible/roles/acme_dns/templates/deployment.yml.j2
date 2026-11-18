@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: acme-dns-data
+  namespace: {{ acme_dns_namespace }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ acme_dns_storage_size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acme-dns
+  namespace: {{ acme_dns_namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: acme-dns
+  template:
+    metadata:
+      labels:
+        app: acme-dns
+      annotations:
+        # Restart the pod when config.cfg changes.
+        checksum/config: "{{ lookup('ansible.builtin.template', 'config.cfg.j2') | hash('sha256') }}"
+    spec:
+      containers:
+      - name: acme-dns
+        image: {{ acme_dns_image }}
+        ports:
+          - containerPort: 53
+            protocol: UDP
+          - containerPort: 53
+            protocol: TCP
+          - containerPort: 80
+            protocol: TCP
+        volumeMounts:
+          - name: config
+            mountPath: /etc/acme-dns
+            readOnly: true
+          - name: data
+            mountPath: /var/lib/acme-dns
+      volumes:
+        - name: config
+          configMap:
+            name: acme-dns-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: acme-dns-data

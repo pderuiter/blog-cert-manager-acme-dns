@@ -1,0 +1,72 @@
+---
+# The post registers with a port-forward and curl. From the node itself the API's
+# ClusterIP is reachable directly, so the role posts to it. Accounts that are
+# already in the secret are kept; only new domains are registered.
+- name: Read the existing account secret
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: "{{ acme_dns_secret_name }}"
+    namespace: "{{ acme_dns_secret_namespace }}"
+  register: acme_dns_existing_secret
+  no_log: true
+
+- name: Load the existing accounts
+  ansible.builtin.set_fact:
+    acme_dns_account_map: >-
+      {{ (acme_dns_existing_secret.resources[0].data['account.json'] | b64decode | from_json)
+         if acme_dns_existing_secret.resources | length > 0 else {} }}
+  no_log: true
+
+- name: Look up the API Service
+  kubernetes.core.k8s_info:
+    kind: Service
+    name: acme-dns
+    namespace: "{{ acme_dns_namespace }}"
+  register: acme_dns_api_svc
+
+- name: Register an account per new domain
+  ansible.builtin.uri:
+    url: "http://{{ acme_dns_api_svc.resources[0].spec.clusterIP }}/register"
+    method: POST
+    status_code: 201
+    return_content: true
+  loop: "{{ acme_dns_accounts | difference(acme_dns_account_map.keys() | list) }}"
+  register: acme_dns_registrations
+  retries: 5
+  delay: 5
+  until: acme_dns_registrations.status | default(0) == 201
+  no_log: true
+
+# Same shape as `jq '{"example.com": .}' acme-dns-account.json`.
+- name: Add the new accounts
+  ansible.builtin.set_fact:
+    acme_dns_account_map: "{{ acme_dns_account_map | combine({item.item: item.json}) }}"
+  loop: "{{ acme_dns_registrations.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  no_log: true
+
+- name: Store the accounts for cert-manager
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ acme_dns_secret_name }}"
+        namespace: "{{ acme_dns_secret_namespace }}"
+      type: Opaque
+      stringData:
+        account.json: "{{ acme_dns_account_map | to_json }}"
+  no_log: true
+
+- name: Show the records to add to your main DNS
+  ansible.builtin.debug:
+    msg: >-
+      {{ [acme_dns_domain ~ '.  IN NS  ' ~ acme_dns_nsname ~ '.',
+          acme_dns_nsname ~ '.  IN A  ' ~ acme_dns_ip]
+         + (acme_dns_account_map | dict2items
+            | map(attribute='key')
+            | map('regex_replace', '^(.*)$', '_acme-challenge.\1.  IN CNAME  ')
+            | zip(acme_dns_account_map | dict2items | map(attribute='value.fulldomain'))
+            | map('join') | map('regex_replace', '$', '.') | list) }}

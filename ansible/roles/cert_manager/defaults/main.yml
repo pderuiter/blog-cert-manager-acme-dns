@@ -1,0 +1,17 @@
+---
+cert_manager_namespace: cert-manager
+cert_manager_chart_repo: https://charts.jetstack.io
+cert_manager_chart_version: v1.21.3
+cert_manager_values:
+  crds:
+    enabled: true
+
+cert_manager_issuer_name: letsencrypt-acmedns
+cert_manager_acme_email: your-email@example.com
+cert_manager_acme_server: https://acme-v02.api.letsencrypt.org/directory
+# Base64 PEM bundle for a private ACME CA (empty for Let's Encrypt).
+cert_manager_acme_ca_bundle: ""
+cert_manager_acme_dns_host: http://acme-dns.acme-dns.svc.cluster.local
+
+# [{name, namespace, secret_name, dns_names}]
+cert_manager_certificates: []

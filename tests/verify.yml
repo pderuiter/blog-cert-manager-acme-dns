@@ -1,0 +1,108 @@
+---
+# Section 5 and 6 of the post, end to end: request a certificate through the
+# ACME-DNS ClusterIssuer and serve it from Traefik with an Ingress. Run it after
+# the CNAME for _acme-challenge.<verify_domain> is in your main DNS.
+#   ansible-playbook tests/verify.yml -e verify_domain=example.com
+- name: Certificate and Ingress through Traefik
+  hosts: k8s
+  vars:
+    ansible_python_interpreter: "{{ k3s_python_venv }}/bin/python"
+    verify_domain: "{{ acme_dns_accounts[0] }}"
+  environment:
+    K8S_AUTH_KUBECONFIG: "{{ k3s_kubeconfig }}"
+  tasks:
+    - name: Deploy a backend (my-service)
+      kubernetes.core.k8s:
+        state: present
+        wait: true
+        definition:
+          - apiVersion: apps/v1
+            kind: Deployment
+            metadata: {name: my-service, namespace: default}
+            spec:
+              replicas: 1
+              selector: {matchLabels: {app: my-service}}
+              template:
+                metadata: {labels: {app: my-service}}
+                spec:
+                  containers:
+                    - name: web
+                      image: traefik/whoami:v1.11
+          - apiVersion: v1
+            kind: Service
+            metadata: {name: my-service, namespace: default}
+            spec:
+              ports: [{port: 80}]
+              selector: {app: my-service}
+
+    - name: Request the certificate
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: cert-manager.io/v1
+          kind: Certificate
+          metadata: {name: example-com-tls, namespace: default}
+          spec:
+            secretName: example-com-tls-secret
+            issuerRef: {name: letsencrypt-acmedns, kind: ClusterIssuer}
+            dnsNames: ["{{ verify_domain }}"]
+
+    - name: Create the Ingress
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata: {name: example-com-ingress, namespace: default}
+          spec:
+            ingressClassName: traefik
+            tls:
+              - hosts: ["{{ verify_domain }}"]
+                secretName: example-com-tls-secret
+            rules:
+              - host: "{{ verify_domain }}"
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: my-service
+                          port: {number: 80}
+
+    - name: Wait until the certificate is Ready
+      kubernetes.core.k8s_info:
+        api_version: cert-manager.io/v1
+        kind: Certificate
+        name: example-com-tls
+        namespace: default
+      register: verify_cert
+      retries: 60
+      delay: 10
+      until: >-
+        verify_cert.resources | length > 0 and
+        (verify_cert.resources[0].status.conditions | default([])
+         | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0)
+
+    - name: Fetch the certificate Traefik serves for the domain
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail &&
+          echo | openssl s_client -connect 127.0.0.1:443 -servername {{ verify_domain }} 2>/dev/null
+          | openssl x509 -noout -issuer -subject -ext subjectAltName
+        executable: /bin/bash
+      register: verify_served
+      changed_when: false
+
+    - name: Show it
+      ansible.builtin.debug:
+        msg: "{{ verify_served.stdout_lines }}"
+
+    # curl --resolve sends SNI and Host for the domain to this node without DNS;
+    # the uri module has no equivalent.
+    - name: Call the backend through the Ingress  # noqa: command-instead-of-module
+      ansible.builtin.command: >-
+        curl -sk --resolve {{ verify_domain }}:443:127.0.0.1 https://{{ verify_domain }}/
+      register: verify_backend
+      changed_when: false
+      failed_when: "'Hostname: my-service' not in verify_backend.stdout"

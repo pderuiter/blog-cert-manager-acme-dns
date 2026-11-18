@@ -1,0 +1,17 @@
+proxmox_endpoint  = "https://pve.example.com:8006/"
+proxmox_api_token = "terraform@pve!blog=00000000-0000-0000-0000-000000000000"
+proxmox_insecure  = false
+node_name         = "pve"
+
+gateway        = "192.0.2.1"
+ssh_public_key = "ssh-ed25519 AAAA... you@example.com"
+
+vms = {
+  k8s01 = {
+    group        = "k8s"
+    ipv4_address = "192.0.2.40/24"
+    cores        = 2
+    memory_mb    = 4096
+    disk_gb      = 30
+  }
+}

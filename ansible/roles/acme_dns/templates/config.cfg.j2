@@ -1,0 +1,26 @@
+[general]
+listen = "0.0.0.0:53"
+protocol = "both"
+domain = "{{ acme_dns_domain }}"
+nsname = "{{ acme_dns_nsname }}"
+nsadmin = "{{ acme_dns_nsadmin }}"
+records = [
+    "{{ acme_dns_domain }}. A {{ acme_dns_ip }}",
+    "{{ acme_dns_nsname }}. A {{ acme_dns_ip }}",
+    "{{ acme_dns_domain }}. NS {{ acme_dns_nsname }}.",
+]
+[database]
+engine = "sqlite"
+connection = "/var/lib/acme-dns/acme-dns.db"
+[api]
+ip = "0.0.0.0"
+port = "80"
+tls = "none"
+disable_registration = false
+corsorigins = ["*"]
+use_header = false
+header_name = "X-Forwarded-For"
+[logconfig]
+loglevel = "{{ acme_dns_log_level }}"
+logtype = "stdout"
+logformat = "text"

@@ -1,0 +1,16 @@
+---
+- name: Add the jetstack chart repository
+  kubernetes.core.helm_repository:
+    name: jetstack
+    repo_url: "{{ cert_manager_chart_repo }}"
+
+- name: Install cert-manager
+  kubernetes.core.helm:
+    name: cert-manager
+    chart_ref: jetstack/cert-manager
+    chart_version: "{{ cert_manager_chart_version }}"
+    release_namespace: "{{ cert_manager_namespace }}"
+    create_namespace: true
+    values: "{{ cert_manager_values }}"
+    wait: true
+    wait_timeout: 10m
